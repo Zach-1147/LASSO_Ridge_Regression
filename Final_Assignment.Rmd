@@ -1,0 +1,35 @@
+---
+title: "Final_Assignment"
+author: "Leon Edmiidz, Zach Ribau"
+date: "2024-02-20"
+output: pdf_document
+---
+
+## HEADER
+
+```{r}
+
+#Define function to install libraries if not already installed on system
+install_if_needed <- function(package_name) {
+  if (!require(package_name, character.only = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  }
+}
+
+#Create vector with required libraries
+packages <- c("tidyverse", "ggplot2","lars")
+
+#Loop over package vector and install and load libraries
+for (pkg in packages) {
+  install_if_needed(pkg)
+}
+
+#load in diabetes dataset
+data(diabetes) # Load the dataset
+
+
+
+
+```
+
