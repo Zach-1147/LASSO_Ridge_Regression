@@ -66,6 +66,7 @@ y_testing <- y[test.index]
 ```
 
 ```{r}
+
 ##----------------------
 ### Cross Validation
 ##----------------------
@@ -73,64 +74,21 @@ y_testing <- y[test.index]
 lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds=10)
 plot(lasso1) 
 
-#Look at the value corresponding to our best model, 
-lambda_min <- lasso1$lambda.min
-
-#And the conservative lse
-lambda_1se <- lasso1$lambda.1se
-
-#Now consider a set of models between these values
-
-#We can convert our momdel coefficients accross lambda values to a dataframe
-coefficients <- tidy(lasso1, exponentiate = TRUE)
-
-#List various lambda values within the range of lambda_min to lambda_1se, summarize with the number of non zero coefficients to assess complexity. 
-sps_set <- coefficients %>%
-  filter(lambda >= lambda_min & lambda <= lambda_1se) %>%
-  group_by(lambda) %>%
-  summarize(total_nonzero = nzero) %>%
-  arrange(desc(lambda))
-
-#We see two lambda values 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.625464.Two additional values share an nzero of 14, so we take only the 5.25992.
-
-#Remove values corresponding to lower performing lambda values of the two pairs
-
-sps_set <- sps_set[-c(3, 7), ]
-
-
+lasso1$lambda.min
+lasso1$lambda.1se
 
 
 ##----------------------
 ### Testing 
 ##----------------------
 
-#Predict response variable in testing data using our models in sps.set
+#Predict response variable in testing data using lambda min and lamnbda 1se
+prd_all <- predict(lasso1, newx=x_testing, s=c(lasso1$lambda.min, lasso1$lambda.1se))
 
-prd.sps.set <- predict(lasso1, newx=x_testing,s=sps_set$lambda)
-dim(prd.sps.set)
+#Compute and print MSE for both models
+(mse_lambda_min <- mean((y_testing - prd_all[,1])^2))
+(mse_lambda_1se <- mean((y_testing - prd_all[,2])^2))
 
-#Compute and print MSE for all of our models on the testing data,comparing to the testing response variable.
-
-#Adapting the function shown in class
-mse <- function (i,y) {
-mean ( (y-i)^2 ) }	
-
-
-
-
-```
-
-
-
-#####
-# Appproach for ranking covariates for PROBLEM-3 
-"notes from lec" - hints
-#####
-
-```{r}
-
-
-#If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
 
 
 
