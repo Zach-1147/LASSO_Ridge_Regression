@@ -98,7 +98,6 @@ sps_set <- evaluation_df %>%
   arrange(desc(lambda))
 
 
-
 ggplot(sps_set, aes(x = nzero, y = mse)) +
   geom_point() +  # Plot all points
   geom_line() +   # Connect points with lines
@@ -112,28 +111,6 @@ ggplot(sps_set, aes(x = nzero, y = mse)) +
 
 #Remove values corresponding to lower performing lambda values of the two pairs
 sps_set <- sps_set[-c(3, 7), ]
-
-lambda_at_index_5 <- sps_set$lambda[5]
-coefficients_at_index_5 <- coef(lasso1, s = lambda_at_index_5)
-coefficients_df <- as.data.frame(coefficients_at_index_5[coefficients_at_index_5 != 0, , drop = FALSE])
-print(coefficients_df)
-
-#We can convert our momdel coefficients accross lambda values to a dataframe
-coefficients <- tidy(lasso1, exponentiate = TRUE)
-
-#List various lambda values within the range of lambda_min to lambda_1se, summarize with the number of non zero coefficients to assess complexity. 
-sps_set <- coefficients %>%
-  filter(lambda >= lambda_min & lambda <= lambda_1se) %>%
-  group_by(lambda) %>%
-  summarize(total_nonzero = nzero) %>%
-  arrange(desc(lambda))
-
-#We see two lambda values 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.625464.Two additional values share an nzero of 14, so we take only the 5.25992.
-
-#Remove values corresponding to lower performing lambda values of the two pairs
-
-sps_set <- sps_set[-c(3, 7), ]
-
 
 
 ##----------------------
