@@ -21,7 +21,7 @@ install_if_needed <- function(package_name) {
 
 #Create vector with required libraries
 
-packages <- c("tidyverse","glmnet", "ggplot2","lars", "caret", "ggplot2", "GGally", "knitr")
+packages <- c("tidyverse","glmnet", "ggplot2","lars", "caret", "ggplot2", "GGally", "knitr", "gridExtra")
 
 #Loop over package vector and install and load libraries
 for (pkg in packages) {
@@ -38,6 +38,8 @@ full_dataset = data.frame(cbind(diabetes$x, diabetes$x2, y = diabetes$y))
 ##----------------------
 ### Data Splitting
 ##----------------------
+
+# --- Problem 1 - a) ----
 
 #Combine X and X2 matrices, as we will train a model with all available  features.
 
@@ -69,38 +71,33 @@ y_testing <- y[test.index]
 ### Cross Validation ###
 ##-------------------##
 
-# --- Perform cross validation with mse and 10 fold ----
+# --- Problem 1 - b) - i) ---- Performing cross validation with training data
+
 
 lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds=10)
 plot(lasso1, label = FALSE)
 title("LASSO Cross-Validation Plot")
 
-# --- Compare alternative models ----
-
+# --- Problem 1 - b) - ii) Compare alternative models in sps.set ----
 
 #Display a table containing alternative models, chosen as those with regularization temrs between lambda min and lambda 1se. Show the number of non zero coefficients as well.
-sps_set <- data.frame(lambda = lasso1$lambda,
+sps.set <- data.frame(lambda = lasso1$lambda,
                       nzero = lasso1$nzero,
                       mse = lasso1$cvm) %>%
   filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
   arrange(mse)
 
-kable(sps_set)
+kable(sps.set)
 
-sps_set <- data.frame(lambda = lasso1$lambda,
-                      nzero = lasso1$nzero,
-                      mse = lasso1$cvm) %>%
-  filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
-  arrange(mse)
 
 #Plot the change in MSE specifically for our set of sps.set models, looking also at the number of nonzero coefficients (point size).
 
-ggplot(sps_set, aes(x = log(lambda), y = mse)) +
+ggplot(sps.set, aes(x = log(lambda), y = mse)) +
   geom_point(aes(size = nzero)) + #Size based on nzero values
   geom_line() +
-  geom_point(data = sps_set[2, ], aes(x = log(lambda), y = mse), color = "blue", size = 8, shape = 8, alpha = 0.75) + #Highight alternative model choice, index 2 from the dataframe.
+  geom_point(data = sps.set[2, ], aes(x = log(lambda), y = mse), color = "blue", size = 8, shape = 8, alpha = 0.75) + #Highight alternative model choice, index 2 from the dataframe.
   geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) + #Label nzero values, moving them out of the way and colouring grey
-  geom_text(data = sps_set[2, ], aes(x = log(lambda), y = mse, label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) + #move label down to avoid overlap w nzero labels
+  geom_text(data = sps.set[2, ], aes(x = log(lambda), y = mse, label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) + #move label down to avoid overlap w nzero labels
   scale_size_continuous(range = c(1, 6), guide = "none") + #Play around with size range for visibility of differences
   theme_minimal() +
   labs(title = "MSE vs.Lambda with # of Non-Zero Coefficients Labeled", x = "Log(Lambda)",y = "Mean Squared Error (mse)")
@@ -109,9 +106,9 @@ ggplot(sps_set, aes(x = log(lambda), y = mse)) +
 #Examining the evaluations_df, qe see two lambda values, 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.303388. additional values share an nzero of 14, so we take only the 4.792651.
 
 #Remove values corresponding to lower performing lambda values of the two pairs
-sps_set <- sps_set[-c(3, 7), ]
+sps.set <- sps.set[-c(3, 7), ]
 
-prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
+prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set$lambda)
 
 
 ##-------------------------------
@@ -119,7 +116,7 @@ prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
 ##------------------------------
 
 #Predict the response variables from the testing dataset
-prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
+prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set$lambda)
 
 #We should get predictions for each of the 9 models, across 42 observations.
 dim(prd.sps.set)
@@ -134,31 +131,23 @@ mse <- function (i,y) {
 mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 
 
-#We can now compare the MSEs for the models.
-testing_mse <- data.frame(lambda = sps_set$lambda, test_mse = mse.sps.set)
+#We can plot the fit for our best model as compared to the chosen alternative model
+Lambda_min_fit <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,1])
 
+Lambda_min_plot <- ggplot(Lambda_min_fit , aes(x = Actual, y = Predicted)) +
+  geom_point(color = "blue", size = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "orange", size = 1,) +  
+  labs(title = "Actual vs. Predicted Diabetes Progression Measures For the Best (Top) and Alternative (Bottom) models", x = "Actual", y = "Predicted") +
+  theme_minimal()
 
-library(ggplot2)
-ggplot(data = sps_set, aes(x = lambda, y = mse.sps.set)) +
-  geom_point() +
-  labs(x = "Lambda", y = "MSE", title = "MSE vs. Lambda")
+Alternative_fit  <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,2])
 
+Alternative_plot <-  ggplot(Alternative_fit, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "blue", size = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "orange", size = 1) +
+  theme_minimal()
 
-#We can also compare the MSEs for each model from the cross validation estimates to the actual testing MSE's, merging based on lambda as the key.
-
-#Ensure numeric identifiers first
-evaluation_df$lambda <- as.numeric(evaluation_df$lambda)
-testing_mse$lambda <- as.numeric(testing_mse$lambda)
-
-testVStrain_mse <- inner_join(evaluation_df, testing_mse, by = "lambda")
-
-testVStrain_mse <- testVStrain_mse %>%
-  mutate(Difference = test_mse - mse)  %>%
-  rename(train_nzero = "nzero")  %>%
-  arrange((Difference))
-
-
-
+grid.arrange(Lambda_min_plot, Alternative_plot, ncol = 1)
 
 
 ```
