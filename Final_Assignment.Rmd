@@ -114,15 +114,13 @@ sps_set <- sps_set[-c(3, 7), ]
 
 prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
 
-as.data.frame(prd.sps.set)
-
 
 ##-------------------------------
 ### Testing & Model Evaluations
 ##------------------------------
 
 #Predict the response variables from the testing dataset
-(prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda))
+prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
 
 #We should get predictions for each of the 9 models, across 42 observations.
 dim(prd.sps.set)
@@ -134,11 +132,32 @@ mse <- function (i,y) {
   mean ( (y-i)^2 ) }	
 
 #Apply the function to the prediction matrix and the test set response variables
-mse.sps.set <- apply(prd.sps.set,2,mse,y_training)
+mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
+
+
+#We can now compare the MSEs for the models.
+
+testing_mse <- data.frame(lambda = sps_set$lambda, test_mse = mse.sps.set)
+
+#We can also compare the MSEs for each model from the cross validation estimates to the actual testing MSE's, merging based on lambda as the key.
+
+#Ensure numeric identifiers first
+evaluation_df$lambda <- as.numeric(evaluation_df$lambda)
+testing_mse$lambda <- as.numeric(testing_mse$lambda)
+
+testVStrain_mse <- inner_join(evaluation_df, sps_set, by = "lambda") %>%
+  select(-nzero.y)
 
 
 
-
+#We can also look at a similar plot of model complexity against predictive performance. 
+ggplot(sps_set, aes(x = nzero, y = mse.sps.set)) +
+  geom_point() +
+  geom_line(group = 1) +
+  theme_minimal() +
+  labs(title = "Predictive Performance vs. Model Complexity",
+       x = "Number of Non-Zero Coefficients",
+       y = "Mean Squared Error on Test Set")
 
 ```
 
