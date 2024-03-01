@@ -98,14 +98,18 @@ ggplot(sps.set, aes(x = log(lambda), y = mse)) +
   theme_minimal() +
   labs(title = "MSE vs.Lambda with # of Non-Zero Coefficients Labeled", x = "Log(Lambda)",y = "Mean Squared Error (mse)")
 
-prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set$lambda)
+#Redefine sps.set as 
+
+lambda <- sort(lasso1$lambda)
+between <- which(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se)  
+sps.set <- lambda[between] 
 
 ##-------------------------------
 ### Testing & Model Evaluations
 ##------------------------------
 
 #Predict the response variables from the testing dataset
-prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set$lambda)
+prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set)
 
 #We should get predictions for each of the 9 models, across 42 observations.
 dim(prd.sps.set)
@@ -120,7 +124,7 @@ mse <- function (i,y) {
 mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 
 test_mse_df <- as.data.frame(mse.sps.set) %>%
-  mutate(lambda = sps.set$lambda)
+  mutate(lambda = sps.set)
 
 #We can plot the fit for our best model as compared to the chosen alternative model
 Lambda_min_fit <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,1])
@@ -140,8 +144,25 @@ Alternative_plot <-  ggplot(Alternative_fit, aes(x = Actual, y = Predicted)) +
 
 grid.arrange(Lambda_min_plot, Alternative_plot, ncol = 1)
 
-#RIDGE REGRESSION
+#Plot 
+plot(log(sps.set),mse.sps.set)
+
+#Look at percentage difference from best model for each lambda value in sps.set
+plot(log(sps.set),mse.sps.set/min(mse.sps.set) *100 -100)
+
+# --- Problem 1 - b) - iii) Compare alternative models in sps.set ----
+
+#Plot diagnostics for best model, and look for issues.
+
+##-------------------------------
+### RIDGE Regression
+##------------------------------
+
+
+# --- Problem 2 - 
+
 ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_foldid, keep = TRUE, alpha =0)
+
 
 
 
