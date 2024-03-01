@@ -21,7 +21,7 @@ install_if_needed <- function(package_name) {
 
 #Create vector with required libraries
 
-packages <- c("tidyverse","glmnet","broom", "ggplot2","lars", "caret", "ggplot2", "GGally")
+packages <- c("tidyverse","glmnet", "ggplot2","lars", "caret", "ggplot2", "GGally")
 
 #Loop over package vector and install and load libraries
 for (pkg in packages) {
@@ -34,7 +34,6 @@ attach(diabetes)
 
 #Combine matrices to visualize as dataframe include row ID
 full_dataset = data.frame(cbind(diabetes$x, diabetes$x2, y = diabetes$y))
-
 
 ##----------------------
 ### Data Splitting
@@ -63,6 +62,7 @@ x_testing <- x_combined[test.index, ]
 y_testing <- y[test.index]
 
 ```
+
 
 ```{r}
 ##----------------------
@@ -112,21 +112,32 @@ ggplot(sps_set, aes(x = nzero, y = mse)) +
 #Remove values corresponding to lower performing lambda values of the two pairs
 sps_set <- sps_set[-c(3, 7), ]
 
+prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda)
 
-##----------------------
-### Testing 
-##----------------------
+as.data.frame(prd.sps.set)
 
-#Predict response variable in testing data using our models in sps.set
 
-prd.sps.set <- predict(lasso1, newx=x_testing,s=sps_set$lambda)
+##-------------------------------
+### Testing & Model Evaluations
+##------------------------------
+
+#Predict the response variables from the testing dataset
+(prd.sps.set <- predict(lasso1, newx = x_testing, s = sps_set$lambda))
+
+#We should get predictions for each of the 9 models, across 42 observations.
 dim(prd.sps.set)
 
-#Compute and print MSE for all of our models on the testing data,comparing to the testing response variable.
+#Now we will compute the MSE for all of our models by comparing to the ground truth response variables
 
-#Adapting the function shown in class
+#Defomomg the function shown in class
 mse <- function (i,y) {
   mean ( (y-i)^2 ) }	
+
+#Apply the function to the prediction matrix and the test set response variables
+mse.sps.set <- apply(prd.sps.set,2,mse,y_training)
+
+
+
 
 
 ```
