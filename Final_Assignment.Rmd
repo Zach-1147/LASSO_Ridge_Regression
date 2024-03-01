@@ -72,8 +72,6 @@ lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds = 10, kee
 #Svae the fold IDs to use for each method
 std_foldid <- lasso1$foldid
 
-print(std_foldid)
-
 plot(lasso1, label = FALSE)
 title("LASSO Cross-Validation Plot")
 
@@ -154,14 +152,91 @@ plot(log(sps.set),mse.sps.set/min(mse.sps.set) *100 -100)
 
 #Plot diagnostics for best model, and look for issues.
 
+#Make sure we standardize residuals. 
+
+
 ##-------------------------------
 ### RIDGE Regression
 ##------------------------------
 
-
-# --- Problem 2 - 
+# --- Problem 1 - c)
 
 ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_foldid, keep = TRUE, alpha =0)
+
+plot(ridge_1, label = FALSE)
+title(".....")
+
+sps.set.ridge <- data.frame(lambda = ridge_1$lambda,nzero = ridge_1$nzero,mse = ridge_1$cvm) %>%
+  filter(lambda_ridge >= ridge_1$lambda.min & lambda_ridge <= ridge_1$lambda.1se) %>%
+  arrange(mse)
+
+kable(sps.set.ridge)
+
+lambda <- sort(ridge_1$lambda)
+between <- which(lambda >= ridge_1$lambda.min & lambda_ridge <= ridge_1$lambda.1se)  
+sps.set.ridge <- lambda_ridge[between] 
+
+#Performing predictions
+prd.sps.set_ridge <- predict(ridge_1,newx=x_testing,s=sps.set.ridge)
+
+cvxr <- glmnet(x_testing,y_testing,lambda=ridge_1$lambda, alpha=0)
+plot(cvxr)
+
+#Calculate MSEs
+mse <- function (i,y) {
+  mean ( (y-i)^2 ) }	
+
+#Apply the function to the prediction matrix and the test set response variables
+mse.sps.set.ridge <- apply(prd.sps.set_ridge ,2,mse,y_testing)
+
+test_mse_ridge <- as.data.frame(mse.sps.set.ridge) %>%
+  mutate(lambda = sps.set.ridge)
+
+#Plotting mse across lambdas chosen
+plot(log(sps.set.ridge),mse.sps.set.ridge)
+
+#And percentage difference relative to best model
+plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
+
+#Here we will pick the second best mse, as covariates don't change in ridge and complexity is not changing here. 
+
+# --- Problem 1 - d)
+
+#Here we will pick the lse as the alternative model as well, as the higher bias lambda value = with smaller coefficients, will generzlize best and is still within the 1 std dev error - important provided the small dataset size.
+
+#How do  best and alternative models from each compare?? Lower coefficients or less coeficients - better to keep them in? depends on biological issue at hand - and prior knowledge of the features. Based on MSE alone.
+
+
+
+#Could plot lasso and ridge performance metrics. bar plot? 
+
+#We need to consider how predictive performance would behave as new data is added as-well, if the model is being designed for application over time. 
+
+
+# --- Problem 2 - a) i)
+
+#For grid
+alphas <- seq(.1, .9, .01)
+
+#Create empty matrix for results
+cvms_net <- matrix(NA,ncol=3,nrow=length(alphas))
+
+for (i in 1:length(alphas)){
+  
+  cvfit <- cv.glmnet(x_training,y_training,foldid=std_foldid,alpha=alphas[i])
+  indx <- which.min(cvfit$cvm)
+  cvms_net[i,] <- c(cvfit$cvm[indx], cvfit$cvlo[indx],cvfit$cvup[indx])
+}
+
+colnames(cvms_net) <- c("cvmin","cvlo","cvup")
+
+par(mfrow=c(1,1))
+plot(alphas,cvms_net[,1],pch=16,main="cvmin")
+plot(alphas,cvms_net[,2],pch=16,main="cvlo")
+plot(alphas,cvms_net[,3],pch=16,main="cvup")
+
+#Check best alpha for training
+alphas[which.min(cvms_net[,1])]
 
 
 
