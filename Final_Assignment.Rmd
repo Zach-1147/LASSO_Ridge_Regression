@@ -5,8 +5,6 @@ date: "2024-02-20"
 output: pdf_document
 ---
 
-## HEADER
-
 ```{r}
 
 ##----------------------
@@ -89,8 +87,8 @@ mse_values <- lasso1$cvm
 evaluation_df <- data.frame(lambda = lasso1$lambda, nzero = non_zero_coefficients)
 
 evaluation_df <- data.frame(lambda = lasso1$lambda, 
-                                  nzero = non_zero_coefficients, 
-                                  mse = mse_values)
+                            nzero = non_zero_coefficients, 
+                            mse = mse_values)
 
 #We can now filter this datagrame to only include our sps_set models, and comapre them accordingly.
 
@@ -151,7 +149,7 @@ dim(prd.sps.set)
 
 #Adapting the function shown in class
 mse <- function (i,y) {
-mean ( (y-i)^2 ) }	
+  mean ( (y-i)^2 ) }	
 
 
 ```
@@ -169,5 +167,3 @@ mean ( (y-i)^2 ) }
 #If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
 
 
-
-```
