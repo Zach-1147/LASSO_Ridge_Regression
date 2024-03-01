@@ -7,6 +7,7 @@ output: pdf_document
 
 ```{r}
 
+
 ##----------------------
 ### Load Libraries & Data
 ##-----------------------
@@ -32,18 +33,15 @@ for (pkg in packages) {
 data("diabetes")
 attach(diabetes)
 
-#Combine matrices to visualize as dataframe include row ID
-full_dataset = data.frame(cbind(diabetes$x, diabetes$x2, y = diabetes$y))
-
 ##----------------------
 ### Data Splitting
 ##----------------------
 
 # --- Problem 1 - a) ----
 
-#Combine X and X2 matrices, as we will train a model with all available  features.
+#
 
-x_combined <- cbind(x, x2)
+x_combined <- diabetes$x2
 
 #Set seed for reproducibility
 set.seed(1545)
@@ -63,32 +61,30 @@ y_training <- y[-test.index]
 x_testing <- x_combined[test.index, ]
 y_testing <- y[test.index]
 
-```
 
-
-```{r}
 ##-------------------##
 ### Cross Validation ###
 ##-------------------##
 
 # --- Problem 1 - b) - i) ---- Performing cross validation with training data
+lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds = 10, keep = TRUE, alpha =1)
 
+#Svae the fold IDs to use for each method
+std_foldid <- lasso1$foldid
 
-lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds=10)
+print(std_foldid)
+
 plot(lasso1, label = FALSE)
 title("LASSO Cross-Validation Plot")
 
 # --- Problem 1 - b) - ii) Compare alternative models in sps.set ----
 
 #Display a table containing alternative models, chosen as those with regularization temrs between lambda min and lambda 1se. Show the number of non zero coefficients as well.
-sps.set <- data.frame(lambda = lasso1$lambda,
-                      nzero = lasso1$nzero,
-                      mse = lasso1$cvm) %>%
+sps.set <- data.frame(lambda = lasso1$lambda,nzero = lasso1$nzero,mse = lasso1$cvm) %>%
   filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
   arrange(mse)
 
 kable(sps.set)
-
 
 #Plot the change in MSE specifically for our set of sps.set models, looking also at the number of nonzero coefficients (point size).
 
@@ -102,14 +98,7 @@ ggplot(sps.set, aes(x = log(lambda), y = mse)) +
   theme_minimal() +
   labs(title = "MSE vs.Lambda with # of Non-Zero Coefficients Labeled", x = "Log(Lambda)",y = "Mean Squared Error (mse)")
 
-
-#Examining the evaluations_df, qe see two lambda values, 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.303388. additional values share an nzero of 14, so we take only the 4.792651.
-
-#Remove values corresponding to lower performing lambda values of the two pairs
-sps.set <- sps.set[-c(3, 7), ]
-
 prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set$lambda)
-
 
 ##-------------------------------
 ### Testing & Model Evaluations
@@ -130,6 +119,8 @@ mse <- function (i,y) {
 #Apply the function to the prediction matrix and the test set response variables
 mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 
+test_mse_df <- as.data.frame(mse.sps.set) %>%
+  mutate(lambda = sps.set$lambda)
 
 #We can plot the fit for our best model as compared to the chosen alternative model
 Lambda_min_fit <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,1])
@@ -149,15 +140,12 @@ Alternative_plot <-  ggplot(Alternative_fit, aes(x = Actual, y = Predicted)) +
 
 grid.arrange(Lambda_min_plot, Alternative_plot, ncol = 1)
 
+#RIDGE REGRESSION
+ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_foldid, keep = TRUE, alpha =0)
+
+
 
 ```
-
-
-
-#####
-# Appproach for ranking covariates for PROBLEM-3 
-"notes from lec" - hints
-#####
 
 ```{r}
 
