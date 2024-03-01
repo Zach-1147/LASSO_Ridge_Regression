@@ -1,0 +1,154 @@
+---
+title: "Final_Assignment"
+author: "Leon Edmiidz, Zach Ribau"
+date: "2024-02-20"
+output: pdf_document
+---
+
+## HEADER
+
+```{r}
+
+##----------------------
+### Load Libraries & Data
+##-----------------------
+
+#Define function to install libraries if not already installed on system
+install_if_needed <- function(package_name) {
+  if (!require(package_name, character.only = TRUE)) {
+    install.packages(package_name)
+    library(package_name, character.only = TRUE)
+  }
+}
+
+#Create vector with required libraries
+packages <- c("tidyverse","glmnet","broom", "ggplot2","lars", "caret", "ggplot2", "GGally")
+
+#Loop over package vector and install and load libraries
+for (pkg in packages) {
+  install_if_needed(pkg)
+}
+
+#load in diabetes dataset
+data("diabetes")
+attach(diabetes)
+
+#Combine matrices to visualize as dataframe include row ID
+full_dataset = data.frame(cbind(diabetes$x, diabetes$x2, y = diabetes$y))
+
+
+##----------------------
+### Data Splitting
+##----------------------
+
+#Combine X and X2 matrices, as we will train a model with all available  features.
+
+x_combined <- cbind(x, x2)
+
+#Set seed for reproducibility
+set.seed(1545)
+
+#Hold out 42 observations for testing
+test_set_size <- 42 
+test.index <- sample.int(dim(x_combined)[1], test_set_size, replace = FALSE)
+
+#Check for standardization, even though glmnet inherently standardizes
+plot(as.ts(apply(x_combined, 2, sd)), xlab="Covariate", ylab="Standard Deviation") 
+
+#Subset training data
+x_training <- x_combined[-test.index, ]
+y_training <- y[-test.index]
+
+#Subset the testing data
+x_testing <- x_combined[test.index, ]
+y_testing <- y[test.index]
+
+```
+
+```{r}
+##----------------------
+### Cross Validation
+##----------------------
+
+lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds=10)
+plot(lasso1) 
+
+#Look at the value corresponding to our best model, 
+lambda_min <- lasso1$lambda.min
+
+#And the conservative lse
+lambda_1se <- lasso1$lambda.1se
+
+#Now consider a set of models between these values
+
+#We can extract each lambda values number of non-zero coefficients, as well as mse values, and save to a dataframe
+non_zero_coefficients <- lasso1$nzero
+mse_values <- lasso1$cvm
+
+evaluation_df <- data.frame(lambda = lasso1$lambda, nzero = non_zero_coefficients)
+
+evaluation_df <- data.frame(lambda = lasso1$lambda, 
+                                  nzero = non_zero_coefficients, 
+                                  mse = mse_values)
+
+#We can now filter this datagrame to only include our sps_set models, and comapre them accordingly.
+
+#List various lambda values within the range of lambda_min to lambda_1se
+sps_set <- evaluation_df %>%
+  filter(lambda >= lambda_min & lambda <= lambda_1se) %>%
+  arrange(desc(lambda))
+
+
+
+ggplot(sps_set, aes(x = nzero, y = mse)) +
+  geom_point() +  # Plot all points
+  geom_line() +   # Connect points with lines
+  geom_point(data = sps_set[6, ], aes(x = nzero, y = mse), color = "red", size = 4, shape = 8) + # Highlight index 6
+  theme_minimal() +
+  labs(title = "Number of Non-Zero Coefficients vs. MSE",
+       x = "Number of Non-Zero Coefficients (nzero)",
+       y = "Mean Squared Error (mse)")
+
+#Examining the evaluations_df, qe see two lambda values, 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.303388. additional values share an nzero of 14, so we take only the 4.792651.
+
+#Remove values corresponding to lower performing lambda values of the two pairs
+sps_set <- sps_set[-c(3, 7), ]
+
+lambda_at_index_5 <- sps_set$lambda[5]
+coefficients_at_index_5 <- coef(lasso1, s = lambda_at_index_5)
+coefficients_df <- as.data.frame(coefficients_at_index_5[coefficients_at_index_5 != 0, , drop = FALSE])
+print(coefficients_df)
+
+##----------------------
+### Testing 
+##----------------------
+
+#Predict response variable in testing data using our models in sps.set
+
+prd.sps.set <- predict(lasso1, newx=x_testing,s=sps_set$lambda)
+dim(prd.sps.set)
+
+#Compute and print MSE for all of our models on the testing data,comparing to the testing response variable.
+
+#Adapting the function shown in class
+mse <- function (i,y) {
+mean ( (y-i)^2 ) }	
+
+
+```
+
+
+
+#####
+# Appproach for ranking covariates for PROBLEM-3 
+"notes from lec" - hints
+#####
+
+```{r}
+
+
+#If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
+
+
+
+```
