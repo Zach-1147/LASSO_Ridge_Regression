@@ -21,7 +21,7 @@ install_if_needed <- function(package_name) {
 
 #Create vector with required libraries
 
-packages <- c("tidyverse","glmnet", "ggplot2","lars", "caret", "ggplot2", "GGally")
+packages <- c("tidyverse","glmnet", "ggplot2","lars", "caret", "ggplot2", "GGally", "knitr")
 
 #Loop over package vector and install and load libraries
 for (pkg in packages) {
@@ -65,47 +65,46 @@ y_testing <- y[test.index]
 
 
 ```{r}
-##----------------------
-### Cross Validation
-##----------------------
+##-------------------##
+### Cross Validation ###
+##-------------------##
+
+# --- Perform cross validation with mse and 10 fold ----
 
 lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds=10)
-plot(lasso1) 
+plot(lasso1, label = FALSE)
+title("LASSO Cross-Validation Plot")
 
-#Look at the value corresponding to our best model, 
-lambda_min <- lasso1$lambda.min
-
-#And the conservative lse
-lambda_1se <- lasso1$lambda.1se
-
-#Now consider a set of models between these values
-
-#We can extract each lambda values number of non-zero coefficients, as well as mse values, and save to a dataframe
-non_zero_coefficients <- lasso1$nzero
-mse_values <- lasso1$cvm
-
-evaluation_df <- data.frame(lambda = lasso1$lambda, nzero = non_zero_coefficients)
-
-evaluation_df <- data.frame(lambda = lasso1$lambda, 
-                            nzero = non_zero_coefficients, 
-                            mse = mse_values)
-
-#We can now filter this datagrame to only include our sps_set models, and comapre them accordingly.
-
-#List various lambda values within the range of lambda_min to lambda_1se
-sps_set <- evaluation_df %>%
-  filter(lambda >= lambda_min & lambda <= lambda_1se) %>%
-  arrange(desc(lambda))
+# --- Compare alternative models ----
 
 
-ggplot(sps_set, aes(x = nzero, y = mse)) +
-  geom_point() +  # Plot all points
-  geom_line() +   # Connect points with lines
-  geom_point(data = sps_set[6, ], aes(x = nzero, y = mse), color = "red", size = 4, shape = 8) + # Highlight index 6
+#Display a table containing alternative models, chosen as those with regularization temrs between lambda min and lambda 1se. Show the number of non zero coefficients as well.
+sps_set <- data.frame(lambda = lasso1$lambda,
+                      nzero = lasso1$nzero,
+                      mse = lasso1$cvm) %>%
+  filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
+  arrange(mse)
+
+kable(sps_set)
+
+sps_set <- data.frame(lambda = lasso1$lambda,
+                      nzero = lasso1$nzero,
+                      mse = lasso1$cvm) %>%
+  filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
+  arrange(mse)
+
+#Plot the change in MSE specifically for our set of sps.set models, looking also at the number of nonzero coefficients (point size).
+
+ggplot(sps_set, aes(x = log(lambda), y = mse)) +
+  geom_point(aes(size = nzero)) + #Size based on nzero values
+  geom_line() +
+  geom_point(data = sps_set[2, ], aes(x = log(lambda), y = mse), color = "blue", size = 8, shape = 8, alpha = 0.75) + #Highight alternative model choice, index 2 from the dataframe.
+  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) + #Label nzero values, moving them out of the way and colouring grey
+  geom_text(data = sps_set[2, ], aes(x = log(lambda), y = mse, label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) + #move label down to avoid overlap w nzero labels
+  scale_size_continuous(range = c(1, 6), guide = "none") + #Play around with size range for visibility of differences
   theme_minimal() +
-  labs(title = "Number of Non-Zero Coefficients vs. MSE",
-       x = "Number of Non-Zero Coefficients (nzero)",
-       y = "Mean Squared Error (mse)")
+  labs(title = "MSE vs.Lambda with # of Non-Zero Coefficients Labeled", x = "Log(Lambda)",y = "Mean Squared Error (mse)")
+
 
 #Examining the evaluations_df, qe see two lambda values, 3.303388 and 3.625464 that are close to our best model and that have the same nzero value (18), thus we will consider the higher performing one, 3.303388. additional values share an nzero of 14, so we take only the 4.792651.
 
@@ -160,6 +159,8 @@ testVStrain_mse <- testVStrain_mse %>%
 
 
 
+
+
 ```
 
 
@@ -173,5 +174,8 @@ testVStrain_mse <- testVStrain_mse %>%
 
 
 #If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
+
+
+```
 
 
