@@ -136,8 +136,14 @@ mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 
 
 #We can now compare the MSEs for the models.
-
 testing_mse <- data.frame(lambda = sps_set$lambda, test_mse = mse.sps.set)
+
+
+library(ggplot2)
+ggplot(data = sps_set, aes(x = lambda, y = mse.sps.set)) +
+  geom_point() +
+  labs(x = "Lambda", y = "MSE", title = "MSE vs. Lambda")
+
 
 #We can also compare the MSEs for each model from the cross validation estimates to the actual testing MSE's, merging based on lambda as the key.
 
@@ -145,19 +151,14 @@ testing_mse <- data.frame(lambda = sps_set$lambda, test_mse = mse.sps.set)
 evaluation_df$lambda <- as.numeric(evaluation_df$lambda)
 testing_mse$lambda <- as.numeric(testing_mse$lambda)
 
-testVStrain_mse <- inner_join(evaluation_df, sps_set, by = "lambda") %>%
-  select(-nzero.y)
+testVStrain_mse <- inner_join(evaluation_df, testing_mse, by = "lambda")
+
+testVStrain_mse <- testVStrain_mse %>%
+  mutate(Difference = test_mse - mse)  %>%
+  rename(train_nzero = "nzero")  %>%
+  arrange((Difference))
 
 
-
-#We can also look at a similar plot of model complexity against predictive performance. 
-ggplot(sps_set, aes(x = nzero, y = mse.sps.set)) +
-  geom_point() +
-  geom_line(group = 1) +
-  theme_minimal() +
-  labs(title = "Predictive Performance vs. Model Complexity",
-       x = "Number of Non-Zero Coefficients",
-       y = "Mean Squared Error on Test Set")
 
 ```
 
