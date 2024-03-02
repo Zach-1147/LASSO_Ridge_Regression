@@ -47,6 +47,7 @@ set.seed(1545)
 test_set_size <- 42 
 test.index <- sample.int(dim(x)[1], test_set_size, replace = FALSE)
 
+
 #Check for standardization, even though glmnet inherently standardizes.
 plot(as.ts(apply(x, 2, sd)), xlab="Covariate", ylab="Standard Deviation") 
 
@@ -86,9 +87,6 @@ sps.set_df <- data.frame(lambda = lassoCV$lambda,nzero = lassoCV$nzero,mse = las
   filter(lambda >= lassoCV$lambda.min & lambda <= lassoCV$lambda.1se) %>%
   arrange(mse) %>%
 mutate(percent_diff = ((mse - min_mse) /min_mse) * 100) #Add column to show percentage difference for each MSE from the best model (lambda.min)
-
-#Print table to screen
-kable(sps.set_df)
 
 #Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
 
@@ -180,12 +178,13 @@ combinedPlot
 
 # --- Problem 1 - b) - iv) Diagnostics of best model ----
 
+prd.best_model <- predict(lassoCV, newx = x_testing, s = lassoCV$lambda.min)
 
 
-#Plot diagnostics for best model, and look for issues.
+
+#Plot diagnostics for best model (lambda min), and look for issues.
 
 #Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
-
 
 
 
@@ -201,10 +200,9 @@ plot(ridge_1, label = FALSE)
 title(".....")
 
 sps.set.ridge <- data.frame(lambda = ridge_1$lambda,nzero = ridge_1$nzero,mse = ridge_1$cvm) %>%
-  filter(lambda_ridge >= ridge_1$lambda.min & lambda_ridge <= ridge_1$lambda.1se) %>%
+  filter(lambda >= ridge_1$lambda.min & lambda <= ridge_1$lambda.1se) %>%
   arrange(mse)
 
-kable(sps.set.ridge)
 
 lambda <- sort(ridge_1$lambda)
 between <- which(lambda >= ridge_1$lambda.min & lambda_ridge <= ridge_1$lambda.1se)  
@@ -309,6 +307,7 @@ alphas[which.min(cvms_net[,1])]
 
 
 #If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
+
 
 
 ```
