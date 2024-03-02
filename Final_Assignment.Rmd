@@ -114,6 +114,8 @@ sps.set <- sps.set_df$lambda
 ### Testing & Model Evaluations
 ##------------------------------
 
+# --- Problem 1 - b) - iii) Predict response variable and evaluate models  ----
+
 #Predict the response variables from the testing dataset
 prd.sps.set <- predict(lassoCV, newx = x_testing, s = sps.set)
 
@@ -155,14 +157,30 @@ sps.set_testPlot <- ggplot(sps.set_testdf, aes(x = log(lambda), y = percent_diff
 
 sps.set_testPlot
 
+#We can combine the lines from the training and testing % change MSE plots to look at the behaviour of the model error in testing and training compared to the best model
+
+combinedPlot <- ggplot() +
+  #Training data - Blue
+  geom_line(data = sps.set_df, aes(x = log(lambda), y = percent_diff, group = 1), color = "blue") +
+  geom_point(data = sps.set_df, aes(x = log(lambda), y = percent_diff), alpha = 0.75, color = "blue", size = 2) +
+  geom_point(data = sps.set_df[9, ], aes(x = log(lambda), y = percent_diff), color = "blue", size = 5, shape = 8, alpha = 0.6) +
+  
+  #Testing data - Orange
+  geom_line(data = sps.set_testdf, aes(x = log(lambda), y = percent_diff, group = 1), color = "orange") +
+  geom_point(data = sps.set_testdf, aes(x = log(lambda), y = percent_diff), alpha = 0.75, color = "orange", size = 2) +
+  geom_point(data = sps.set_testdf[9, ], aes(x = log(lambda), y = percent_diff), color = "orange", size = 5, shape = 8, alpha = 0.6) +
+  
+  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
+  theme_minimal() +
+  labs(title = "MSE % Change vs. Log(λ) for sps.set Models: Training(Blue) vs. Testing(Orange)",
+       x = "Log(Lambda)",
+       y = "% Difference from Lambda.min MSE")
+
+combinedPlot
+
+# --- Problem 1 - b) - iv) Diagnostics of best model ----
 
 
-
-
-
-
-
-# --- Problem 1 - b) - iii) Compare alternative models in sps.set ----
 
 #Plot diagnostics for best model, and look for issues.
 
@@ -175,7 +193,7 @@ sps.set_testPlot
 ### RIDGE Regression
 ##------------------------------
 
-# --- Problem 1 - c)
+# --- Problem 1 - c) Replicate analysis with Ridge Regression ---
 
 ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_foldid, keep = TRUE, alpha =0)
 
@@ -216,11 +234,11 @@ plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
 
 #Here we will pick the second best mse, as covariates don't change in ridge and complexity is not changing here. 
 
-# --- Problem 1 - d)
+# --- Problem 1 - d) Comparing models accross LASSO and Ridge ---
 
 #Here we will pick the lse as the alternative model as well, as the higher bias lambda value = with smaller coefficients, will generzlize best and is still within the 1 std dev error - important provided the small dataset size.
 
-#How do  best and alternative models from each compare?? Lower coefficients or less coeficients - better to keep them in? depends on biological issue at hand - and prior knowledge of the features. Based on MSE alone.
+#How do  best and alternative models from each compare?? Lower coefficients or less coefficients - better to keep them in? depends on biological issue at hand - and prior knowledge of the features. Based on MSE alone.
 
 
 #Could plot lasso and ridge performance metrics. bar plot? 
@@ -228,7 +246,11 @@ plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
 #We need to consider how predictive performance would behave as new data is added as-well, if the model is being designed for application over time. 
 
 
-# --- Problem 2 - a) i)
+##-------------------------------
+### Net Elastic Regression
+##------------------------------
+
+# --- Problem 2 - a) i) Tune optimal alpha parameter
 
 #For grid
 alphas <- seq(.1, .9, .01)
@@ -259,7 +281,6 @@ for (i in 1:length(alphas)){
 
 }
 
-
 #Name resulting columns
 colnames(cvms_net) <- c("cvmin","cvlo","cvup")
 
@@ -282,6 +303,9 @@ alphas[which.min(cvms_net[,1])]
 ```
 
 ```{r}
+
+
+# --- Problem 3 
 
 
 #If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
