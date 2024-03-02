@@ -7,7 +7,6 @@ output: pdf_document
 
 ```{r}
 
-
 ##----------------------
 ### Load Libraries & Data
 ##-----------------------
@@ -39,26 +38,24 @@ attach(diabetes)
 
 # --- Problem 1 - a) ----
 
-#
+x <- diabetes$x2
 
-x_combined <- diabetes$x2
-
-#Set seed for reproducibility
+#Set seed for reproducibility, once at beginning of script
 set.seed(1545)
 
-#Hold out 42 observations for testing
+#Hold out 42 observations for testing..)
 test_set_size <- 42 
-test.index <- sample.int(dim(x_combined)[1], test_set_size, replace = FALSE)
+test.index <- sample.int(dim(x)[1], test_set_size, replace = FALSE)
 
-#Check for standardization, even though glmnet inherently standardizes
-plot(as.ts(apply(x_combined, 2, sd)), xlab="Covariate", ylab="Standard Deviation") 
+#Check for standardization, even though glmnet inherently standardizes.
+plot(as.ts(apply(x, 2, sd)), xlab="Covariate", ylab="Standard Deviation") 
 
 #Subset training data
-x_training <- x_combined[-test.index, ]
+x_training <- x[-test.index, ]
 y_training <- y[-test.index]
 
 #Subset the testing data
-x_testing <- x_combined[test.index, ]
+x_testing <- x[test.index, ]
 y_testing <- y[test.index]
 
 
@@ -67,80 +64,80 @@ y_testing <- y[test.index]
 ##-------------------##
 
 # --- Problem 1 - b) - i) ---- Performing cross validation with training data
-lasso1 <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds = 10, keep = TRUE, alpha =1)
 
-#Svae the fold IDs to use for each method
-std_foldid <- lasso1$foldid
+#Perform 10-fold cross-validation for LASSO model using MSE as measure, 10 folds, and setting keep as true to retain fold id's for consistency throughout the script.
+lassoCV <- cv.glmnet(x_training, y_training, type.measure="mse", nfolds = 10, keep = TRUE, alpha =1)
 
-plot(lasso1, label = FALSE)
-title("LASSO Cross-Validation Plot")
+#Save the fold IDs to a variable to set later
+std_foldid <- lassoCV$foldid
+
+#Plot the cross validation results, showing mean MSE versus lambda.
+par(mar=c(5, 4, 6, 2))
+plot(lassoCV)
+title("LASSO Cross-Validation: MSE vs Lambda")
 
 # --- Problem 1 - b) - ii) Compare alternative models in sps.set ----
 
-#Display a table containing alternative models, chosen as those with regularization temrs between lambda min and lambda 1se. Show the number of non zero coefficients as well.
-sps.set <- data.frame(lambda = lasso1$lambda,nzero = lasso1$nzero,mse = lasso1$cvm) %>%
-  filter(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se) %>%
-  arrange(mse)
+#Display a table containing alternative models, chosen as those with regularization terms between lambda min and lambda 1se. Show the number of non zero coefficients as well. It will be saved as a dataframe for manual investigation
 
-kable(sps.set)
+min_mse <- min(lassoCV$cvm) #Save min mse for formula used below
 
-#Plot the change in MSE specifically for our set of sps.set models, looking also at the number of nonzero coefficients (point size).
+sps.set_df <- data.frame(lambda = lassoCV$lambda,nzero = lassoCV$nzero,mse = lassoCV$cvm) %>%
+  filter(lambda >= lassoCV$lambda.min & lambda <= lassoCV$lambda.1se) %>%
+  arrange(mse) %>%
+mutate(percent_diff = ((mse - min_mse) /min_mse) * 100) #Add column to show percentage difference for each MSE from the best model (lambda.min)
 
-ggplot(sps.set, aes(x = log(lambda), y = mse)) +
-  geom_point(aes(size = nzero)) + #Size based on nzero values
+#Print table to screen
+kable(sps.set_df)
+
+#Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
+
+ggplot(sps.set_df, aes(x = log(lambda), y = percent_diff)) +
+  geom_point(aes(size = nzero), alpha = 0.75) + 
   geom_line() +
-  geom_point(data = sps.set[2, ], aes(x = log(lambda), y = mse), color = "blue", size = 8, shape = 8, alpha = 0.75) + #Highight alternative model choice, index 2 from the dataframe.
-  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) + #Label nzero values, moving them out of the way and colouring grey
-  geom_text(data = sps.set[2, ], aes(x = log(lambda), y = mse, label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) + #move label down to avoid overlap w nzero labels
-  scale_size_continuous(range = c(1, 6), guide = "none") + #Play around with size range for visibility of differences
+  geom_point(data = sps.set_df[2, ], color = "blue", size = 8, shape = 8) + #Highlight alternative model choice
+  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +
+  geom_text(data = sps.set_df[2, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) +
+  scale_size_continuous(range = c(1, 6), guide = "none") + #Adjust point sizes based on nzero
   theme_minimal() +
-  labs(title = "MSE vs.Lambda with # of Non-Zero Coefficients Labeled", x = "Log(Lambda)",y = "Mean Squared Error (mse)")
+  labs(title = "MSE % Change vs. Log(λ) for LASSO CV", # Corrected title for clarity and removed trailing comma
+       x = "Log(Lambda)",
+       y = "% Difference from Lambda.min MSE")
 
-#Redefine sps.set as 
 
-lambda <- sort(lasso1$lambda)
-between <- which(lambda >= lasso1$lambda.min & lambda <= lasso1$lambda.1se)  
-sps.set <- lambda[between] 
+#Set our sps.set model lambda's to a numeric vector 
+
+sps.set <- sps.set_df$lambda
 
 ##-------------------------------
 ### Testing & Model Evaluations
 ##------------------------------
 
 #Predict the response variables from the testing dataset
-prd.sps.set <- predict(lasso1, newx = x_testing, s = sps.set)
+prd.sps.set <- predict(lassoCV, newx = x_testing, s = sps.set)
 
 #We should get predictions for each of the 9 models, across 42 observations.
 dim(prd.sps.set)
 
-#Now we will compute the MSE for all of our models by comparing to the ground truth response variables
+#Now we will compute the MSE for all of our models by comparing to the ground truth disease progression values
 
-#Defomomg the function shown in class
+#Defining the function shown in class
 mse <- function (i,y) {
   mean ( (y-i)^2 ) }	
 
 #Apply the function to the prediction matrix and the test set response variables
 mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 
-test_mse_df <- as.data.frame(mse.sps.set) %>%
-  mutate(lambda = sps.set)
+min_mse_test <- min(mse.sps.set) #Save min mse for formula below
 
-#We can plot the fit for our best model as compared to the chosen alternative model
-Lambda_min_fit <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,1])
+#Store summary stats in a data frame again to investigate
+sps.set_test_df <- data.frame(
+  lambda = sps.set,
+  mse = mse.sps.set,
+  percent_diff = ((mse.sps.set - min_mse_test) / min_mse_test) * 100)
 
-Lambda_min_plot <- ggplot(Lambda_min_fit , aes(x = Actual, y = Predicted)) +
-  geom_point(color = "blue", size = 1) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "orange", size = 1,) +  
-  labs(title = "Actual vs. Predicted Diabetes Progression Measures For the Best (Top) and Alternative (Bottom) models", x = "Actual", y = "Predicted") +
-  theme_minimal()
 
-Alternative_fit  <- data.frame(Actual = y_testing, Predicted = prd.sps.set[,2])
 
-Alternative_plot <-  ggplot(Alternative_fit, aes(x = Actual, y = Predicted)) +
-  geom_point(color = "blue", size = 1) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "orange", size = 1) +
-  theme_minimal()
-
-grid.arrange(Lambda_min_plot, Alternative_plot, ncol = 1)
 
 #Plot 
 plot(log(sps.set),mse.sps.set)
@@ -153,6 +150,9 @@ plot(log(sps.set),mse.sps.set/min(mse.sps.set) *100 -100)
 #Plot diagnostics for best model, and look for issues.
 
 #Make sure we standardize residuals. 
+
+
+
 
 
 ##-------------------------------
@@ -207,7 +207,6 @@ plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
 #How do  best and alternative models from each compare?? Lower coefficients or less coeficients - better to keep them in? depends on biological issue at hand - and prior knowledge of the features. Based on MSE alone.
 
 
-
 #Could plot lasso and ridge performance metrics. bar plot? 
 
 #We need to consider how predictive performance would behave as new data is added as-well, if the model is being designed for application over time. 
@@ -221,22 +220,45 @@ alphas <- seq(.1, .9, .01)
 #Create empty matrix for results
 cvms_net <- matrix(NA,ncol=3,nrow=length(alphas))
 
+mse.net <- NA
+net.predict <- NA
+
 for (i in 1:length(alphas)){
   
+  alphas_val = alphas[i]
+  
   cvfit <- cv.glmnet(x_training,y_training,foldid=std_foldid,alpha=alphas[i])
+  
   indx <- which.min(cvfit$cvm)
+  
   cvms_net[i,] <- c(cvfit$cvm[indx], cvfit$cvlo[indx],cvfit$cvup[indx])
+  
+  best_lambda = cvfit$lambda.min
+  
+  #predict for each model
+  net.predict[i] <- predict(cvms_net,newx=x_testing,s=best_lambda)
+  
+  #compute mse
+  mse.net[i] <- apply(net.predict,2,mse,y_testing)
+
 }
 
+
+#Name resulting columns
 colnames(cvms_net) <- c("cvmin","cvlo","cvup")
 
 par(mfrow=c(1,1))
+#Plot MSE for all alpha values
 plot(alphas,cvms_net[,1],pch=16,main="cvmin")
-plot(alphas,cvms_net[,2],pch=16,main="cvlo")
-plot(alphas,cvms_net[,3],pch=16,main="cvup")
 
-#Check best alpha for training
+#Check best alpha from training set
 alphas[which.min(cvms_net[,1])]
+
+#And the testing set
+
+
+
+#Now predict for each of the 81 models created with the minimum mse lambda values.
 
 
 
