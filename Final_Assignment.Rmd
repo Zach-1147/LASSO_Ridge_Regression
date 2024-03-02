@@ -92,21 +92,22 @@ kable(sps.set_df)
 
 #Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
 
-ggplot(sps.set_df, aes(x = log(lambda), y = percent_diff)) +
+sps.set_trainPlot <- ggplot(sps.set_df, aes(x = log(lambda), y = percent_diff)) +
   geom_point(aes(size = nzero), alpha = 0.75) + 
   geom_line() +
-  geom_point(data = sps.set_df[2, ], color = "blue", size = 8, shape = 8) + #Highlight alternative model choice
+  geom_point(data = sps.set_df[9, ], color = "blue", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
   geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +
-  geom_text(data = sps.set_df[2, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = -5, color = "blue", nudge_y = 0.1) +
+  geom_text(data = sps.set_df[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0,hjust = 1.5, color = "blue") +
   scale_size_continuous(range = c(1, 6), guide = "none") + #Adjust point sizes based on nzero
+  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) +
   theme_minimal() +
-  labs(title = "MSE % Change vs. Log(λ) for LASSO CV", # Corrected title for clarity and removed trailing comma
-       x = "Log(Lambda)",
-       y = "% Difference from Lambda.min MSE")
+labs(title = "MSE % Change vs. Log(λ) for LASSO CV Training sps.set Models",
+     x = "Log(Lambda)",
+     y = "% Difference from Lambda.min MSE")
 
+sps.set_trainPlot 
 
 #Set our sps.set model lambda's to a numeric vector 
-
 sps.set <- sps.set_df$lambda
 
 ##-------------------------------
@@ -131,26 +132,41 @@ mse.sps.set <- apply(prd.sps.set,2,mse,y_testing)
 min_mse_test <- min(mse.sps.set) #Save min mse for formula below
 
 #Store summary stats in a data frame again to investigate
-sps.set_test_df <- data.frame(
+sps.set_testdf <- data.frame(
   lambda = sps.set,
   mse = mse.sps.set,
+  nzero = sps.set_df$nzero,
   percent_diff = ((mse.sps.set - min_mse_test) / min_mse_test) * 100)
 
+#Create another plot of mean MSE % over the lambda min, versus lambda values, but this time for sps.set testing results.
+
+sps.set_testPlot <- ggplot(sps.set_testdf, aes(x = log(lambda), y = percent_diff)) +
+  geom_point(aes(size = nzero), alpha = 0.75) +  # Size mapping reintroduced with nzero
+  geom_line() +
+  geom_point(data = sps.set_testdf[9, ], color = "orange", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
+  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +  # nzero labels reintroduced
+  geom_text(data = sps.set_testdf[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0, hjust = 1.2, color = "orange") +
+  scale_size_continuous(range = c(1, 6), guide = "none") +
+  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
+  theme_minimal() +
+  labs(title = "MSE % Change vs. Log(λ) for Testing sps.set Models",
+       x = "Log(Lambda)",
+       y = "% Difference from Lambda.min MSE")
+
+sps.set_testPlot
 
 
 
-#Plot 
-plot(log(sps.set),mse.sps.set)
 
-#Look at percentage difference from best model for each lambda value in sps.set
-plot(log(sps.set),mse.sps.set/min(mse.sps.set) *100 -100)
+
+
+
 
 # --- Problem 1 - b) - iii) Compare alternative models in sps.set ----
 
 #Plot diagnostics for best model, and look for issues.
 
-#Make sure we standardize residuals. 
-
+#Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
 
 
 
