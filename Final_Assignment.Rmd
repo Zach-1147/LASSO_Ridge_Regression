@@ -178,15 +178,24 @@ combinedPlot
 
 # --- Problem 1 - b) - iv) Diagnostics of best model ----
 
-prd.best_model <- predict(lassoCV, newx = x_testing, s = lassoCV$lambda.min)
-
-
-
 #Plot diagnostics for best model (lambda min), and look for issues.
 
 #Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
 
+# Calculate residuals.
+residuals <- y_testing - predict(lassoCV, newx = x_testing, s = lassoCV$lambda.min)
 
+# Calculate estimated standard deviation of residuals.
+residual_sd <- sd(residuals)
+
+# Standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
+standardized_residuals <- residuals / residual_sd
+
+# Fit a linear model using the standardized residuals for the diagnostic plots.
+diagnostic_lm_model <- lm(standardized_residuals ~ predict(lassoCV, newx = x_testing, s = lassoCV$lambda.min))
+
+# Visualize the diagnostic plots.
+plot(diagnostic_lm_model)
 
 ##-------------------------------
 ### RIDGE Regression
@@ -311,5 +320,3 @@ alphas[which.min(cvms_net[,1])]
 
 
 ```
-
-
