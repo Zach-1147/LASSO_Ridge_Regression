@@ -269,18 +269,9 @@ diagnostic_lm_model_ridge <- lm(standardized_residuals ~ predict(ridge_1, newx =
 # Visualize the diagnostic plots.
 plot(diagnostic_lm_model_ridge)
 
-#Here we will pick the second best mse, as covariates don't change in ridge and complexity is not changing here. 
-
-# --- Problem 1 - d) Comparing models accross LASSO and Ridge ---
-
-#Here we will pick the lse as the alternative model as well, as the higher bias lambda value = with smaller coefficients, will generalize best and is still within the 1 std dev error - important provided the small dataset size.
-
-#How do  best and alternative models from each compare?? Lower coefficients or less coefficients - better to keep them in? depends on biological issue at hand - and prior knowledge of the features. Based on MSE alone.
+# --- Problem 1 - d) Comparing models across LASSO and Ridge ---
 
 
-#Could plot lasso and ridge performance metrics. bar plot? 
-
-#We need to consider how predictive performance would behave as new data is added as-well, if the model is being designed for application over time. 
 
 
 ##-------------------------------
@@ -288,6 +279,8 @@ plot(diagnostic_lm_model_ridge)
 ##------------------------------
 
 # --- Problem 2 - a) i) Tune optimal alpha parameter
+
+alphas <- seq(0.1, 0.9, by = 0.01)
 
 #Create master dataframe to store various results of CV training and predictions accross the range of alpha values.
 net_elastic <- data.frame(alpha = numeric(), train_mse = numeric(), test_mse = numeric())
@@ -306,15 +299,26 @@ for (i in 1:length(alphas)){
   #Calculate the training MSE for the current model
   train_mse <- min(cvfit$cvm)  # Minimum cross-validation MSE
   
+  lambda_min <- cvfit$lambda.min
+  
   #Predict on the testing set using lambda.min for the current alpha
-  prediction <- predict(cvfit, newx = x_testing, s = cvfit$lambda.min)
+  prediction <- predict(cvfit, newx = x_testing, s = lambda_min)
   
   #Calculate the testing MSE for the current model
   test_mse <- mse(prediction, y_testing)
-  
+
   #Append alpha, training MSE, and testing MSE values to the net_elastic dataframe
-  net_elastic <- rbind(net_elastic, data.frame(alpha = alphas[i], train_mse = train_mse, test_mse = test_mse))
+  net_elastic <- rbind(net_elastic, data.frame(alpha = alphas[i], train_mse = train_mse, test_mse = test_mse, lambda_min = lambda_min))
 }
+
+#Extract best alpha from testing MSE measure
+best_alpha <- net_elastic$alpha[which.min(net_elastic$test_mse)]
+
+#Index from alphas
+best_alpha_index <- which(alphas == best_alpha)
+
+#Extract coefficients from best performing model (lambda min from within best alpha from testing)
+best_model_coef <- coef(models[[best_alpha_index]], s = "lambda.min")
 
 
 #Plot the behaviour of the training cross validation error across the alpha values from the grid search
@@ -326,7 +330,6 @@ ggplot(net_elastic, aes(x = alpha, y = train_mse)) +
   theme_minimal()
 
 
-
 #Plot the behaviour of the testing MSE across the alpha values from the grid search
 ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
   geom_line() + geom_point() +
@@ -335,8 +338,6 @@ ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
        y = "Testing MSE") +
   theme_minimal()
 
-
-best_model <- 
 
 
 
