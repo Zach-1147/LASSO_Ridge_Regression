@@ -208,14 +208,12 @@ ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_fo
 plot(ridge_1, label = FALSE)
 title(".....")
 
-sps.set.ridge <- data.frame(lambda = ridge_1$lambda,nzero = ridge_1$nzero,mse = ridge_1$cvm) %>%
+sps.set.ridge.df <- data.frame(lambda = ridge_1$lambda,nzero = ridge_1$nzero,mse = ridge_1$cvm) %>%
   filter(lambda >= ridge_1$lambda.min & lambda <= ridge_1$lambda.1se) %>%
   arrange(mse)
 
-
-lambda <- sort(ridge_1$lambda)
-between <- which(lambda >= ridge_1$lambda.min & lambda_ridge <= ridge_1$lambda.1se)  
-sps.set.ridge <- lambda_ridge[between] 
+#Set our sps.set model lambda's to a numeric vector 
+sps.set.ridge <- sps.set.ridge.df$lambda
 
 #Performing predictions
 prd.sps.set_ridge <- predict(ridge_1,newx=x_testing,s=sps.set.ridge)
@@ -238,6 +236,25 @@ plot(log(sps.set.ridge),mse.sps.set.ridge)
 
 #And percentage difference relative to best model
 plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
+
+#Plot diagnostics for best model (lambda min), and look for issues.
+
+#Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
+
+# Calculate residuals.
+residuals <- y_testing - predict(ridge_1, newx = x_testing, s = ridge_1$lambda.min)
+
+# Calculate estimated standard deviation of residuals.
+residual_sd <- sd(residuals)
+
+# Standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
+standardized_residuals <- residuals / residual_sd
+
+# Fit a linear model using the standardized residuals for the diagnostic plots.
+diagnostic_lm_model_ridge <- lm(standardized_residuals ~ predict(ridge_1, newx = x_testing, s = ridge_1$lambda.min))
+
+# Visualize the diagnostic plots.
+plot(diagnostic_lm_model_ridge)
 
 #Here we will pick the second best mse, as covariates don't change in ridge and complexity is not changing here. 
 
