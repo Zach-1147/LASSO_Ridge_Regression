@@ -228,7 +228,7 @@ mse <- function (i,y) {
   mean ( (y-i)^2 ) }	
 
 #Apply the function to the prediction matrix and the test set response variables
-mse.sps.set.ridge <- apply(prd.sps.set_ridge ,2,mse,y_testing)
+mse.sps.set.ridge <- apply(prd.sps.set_ridge, 2, mse,y_testing)
 
 test_mse_ridge <- as.data.frame(mse.sps.set.ridge) %>%
   mutate(lambda = sps.set.ridge)
