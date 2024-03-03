@@ -289,49 +289,54 @@ plot(diagnostic_lm_model_ridge)
 
 # --- Problem 2 - a) i) Tune optimal alpha parameter
 
-#For grid
-alphas <- seq(.1, .9, .01)
+#Create master dataframe to store various results of CV training and predictions accross the range of alpha values.
+net_elastic <- data.frame(alpha = numeric(), train_mse = numeric(), test_mse = numeric())
 
-#Create empty matrix for results
-cvms_net <- matrix(NA,ncol=3,nrow=length(alphas))
+models <- list(NA)
 
-mse.net <- NA
-net.predict <- NA
-
+#Loop over alpha values
 for (i in 1:length(alphas)){
   
-  alphas_val = alphas[i]
+  #Perform the cross validation for current alpha
+  cvfit <- cv.glmnet(x_training, y_training, foldid = std_foldid, alpha = alphas[i])
   
-  cvfit <- cv.glmnet(x_training,y_training,foldid=std_foldid,alpha=alphas[i])
+  #Store model objects to list
+  models[[i]] <- cvfit
   
-  indx <- which.min(cvfit$cvm)
+  #Calculate the training MSE for the current model
+  train_mse <- min(cvfit$cvm)  # Minimum cross-validation MSE
   
-  cvms_net[i,] <- c(cvfit$cvm[indx], cvfit$cvlo[indx],cvfit$cvup[indx])
+  #Predict on the testing set using lambda.min for the current alpha
+  prediction <- predict(cvfit, newx = x_testing, s = cvfit$lambda.min)
   
-  best_lambda = cvfit$lambda.min
+  #Calculate the testing MSE for the current model
+  test_mse <- mse(prediction, y_testing)
   
-  #predict for each model
-  net.predict[i] <- predict(cvms_net,newx=x_testing,s=best_lambda)
-  
-  #compute mse
-  mse.net[i] <- apply(net.predict,2,mse,y_testing)
-
+  #Append alpha, training MSE, and testing MSE values to the net_elastic dataframe
+  net_elastic <- rbind(net_elastic, data.frame(alpha = alphas[i], train_mse = train_mse, test_mse = test_mse))
 }
 
-#Name resulting columns
-colnames(cvms_net) <- c("cvmin","cvlo","cvup")
 
-par(mfrow=c(1,1))
-#Plot MSE for all alpha values
-plot(alphas,cvms_net[,1],pch=16,main="cvmin")
-
-#Check best alpha from training set
-alphas[which.min(cvms_net[,1])]
-
-#And the testing set
+#Plot the behaviour of the training cross validation error across the alpha values from the grid search
+ggplot(net_elastic, aes(x = alpha, y = train_mse)) +
+  geom_line() + geom_point() +
+  labs(title = "Training CV-Error Across Different Alphas",
+       x = "Alpha",
+       y = "CV-Error") +
+  theme_minimal()
 
 
-#Now predict for each of the 81 models created with the minimum mse lambda values.
+
+#Plot the behaviour of the testing MSE across the alpha values from the grid search
+ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
+  geom_line() + geom_point() +
+  labs(title = "Testing MSE Across Different Alphas",
+       x = "Alpha",
+       y = "Testing MSE") +
+  theme_minimal()
+
+
+best_model <- 
 
 
 
