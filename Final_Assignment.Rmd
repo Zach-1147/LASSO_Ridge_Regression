@@ -126,7 +126,6 @@ sps.set_testdf <- data.frame(
 
 #Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
 
-
 combinedPlot <- ggplot() +
   #Training data - Blue
   geom_line(data = sps.set_df, aes(x = log(lambda), y = percent_diff, group = 1), color = "blue") +
@@ -150,7 +149,8 @@ combinedPlot <- ggplot() +
   theme_minimal() +
   labs(title = "MSE % Change vs. Log(λ) for sps.set Models: Training(Blue) vs. Testing(Orange)",
        x = "Log(Lambda)",
-       y = "% Difference from Lambda.min MSE")
+       y = "% Difference from Lambda.min MSE")+
+ theme(plot.title = element_text(size = 16))  # Adjust the size as needed
 
 combinedPlot
 
@@ -188,10 +188,8 @@ diagnostic_lm_model <- lm(standardized_residuals ~ predict(lassoCV, newx = x_tes
 
 par(mfrow = c(2, 2))
 
-# Now, plot the diagnostic plots for the linear model
+# plot the diagnostics in a single frame
 plot(diagnostic_lm_model)
-
-# Reset to default plotting layout
 par(mfrow = c(1, 1))
 
 
@@ -231,12 +229,41 @@ test_mse_ridge <- as.data.frame(mse.sps.set.ridge) %>%
 sps.set.ridge.df <- sps.set.ridge.df %>%
   mutate(test_mse = mse.sps.set.ridge)
 
+sps.set.ridge.df <- sps.set.ridge.df %>%
+  mutate(percent_diff_test = ((test_mse - min(test_mse)) / min(test_mse)) * 100)%>%
+  mutate(percent_diff_train = ((mse - min(mse)) / min(mse)) * 100)
 
-#Plot the percentage difference relative to best model for both training and testing of ridge models.
+
+#Create model comparison plot, as before, for ridge
+combinedPlot_ridge <- ggplot() +
+  # Training data - Blue
+  geom_line(data = sps.set.ridge.df, aes(x = log(lambda), y = percent_diff_train, group = 1), color = "blue") +
+  geom_point(data = sps.set.ridge.df, aes(x = log(lambda), y = percent_diff_train), alpha = 0.75, color = "blue", size = 2) +
+  
+  # Highlighting specific points for training
+  geom_point(data = sps.set.ridge.df[15, ], aes(x = log(lambda), y = percent_diff_train), color = "black", size = 7, shape = 8) +
+  geom_point(data = sps.set.ridge.df[1, ], aes(x = log(lambda), y = percent_diff_train), color = "red", size = 6, shape = 6) +
+  
+  # Testing data - Orange
+  geom_line(data = sps.set.ridge.df, aes(x = log(lambda), y = percent_diff_test, group = 1), color = "orange") +
+  geom_point(data = sps.set.ridge.df, aes(x = log(lambda), y = percent_diff_test), alpha = 0.75, color = "orange", size = 2) +
+  
+  # Highlighting specific points for testing
+  geom_point(data = sps.set.ridge.df[15, ], aes(x = log(lambda), y = percent_diff_test), color = "black", size = 7, shape = 8) +
+  
+  # Labels for highlighted points, adjusted for percent_diff
+  geom_text(data = sps.set.ridge.df[15, ], aes(x = log(lambda), y = percent_diff_test, label = sprintf("lambda = %.6f", lambda)), vjust = -0.5,hjust = 1, color = "black") +
+  geom_text(data = sps.set.ridge.df[1, ], aes(x = log(lambda), y = percent_diff_train, label = sprintf("lambda = %.6f", lambda)), vjust = -4, hjust = 0, color = "red") +
+  
+  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
+  theme_minimal() +
+  labs(title = "Percent Difference vs. Log(λ) for Ridge Regression Models: Training(Blue) vs. Testing(Orange)",
+       x = "Log(Lambda)",
+       y = "Percent Difference from Min MSE")
+
+combinedPlot_ridge
 
 #Plot diagnostics for best model (lambda min), and look for issues.
-
-#Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
 
 # Calculate residuals.
 residuals <- y_testing - predict(ridge_1, newx = x_testing, s = ridge_1$lambda.min)
@@ -252,10 +279,8 @@ diagnostic_lm_model_ridge <- lm(standardized_residuals ~ predict(ridge_1, newx =
 
 par(mfrow = c(2, 2))
 
-# Now, plot the diagnostic plots for the linear model
+#plot the diagnostics in a single frame
 plot(diagnostic_lm_model_ridge)
-
-# Reset to default plotting layout
 par(mfrow = c(1, 1))
 
 
@@ -352,12 +377,9 @@ diagnostic_lm_model_net <- lm(standardized_residuals ~ predict(best_net_model, n
 
 par(mfrow = c(2, 2))
 
-# Now, plot the diagnostic plots for the linear model
+#plot the diagnostics in a single frame
 plot(diagnostic_lm_model_net)
-
-# Reset to default plotting layout
 par(mfrow = c(1, 1))
-
 
 ```
 
