@@ -344,7 +344,6 @@ lasso_min_coef_df$sd <- x_training_sd # Add the sd's into a new column in the da
 
 ranked_variables <- lasso_min_coef_df %>% #Tidyverse function to process the data frame.
   filter(s1 != 0) %>% # Filter out all the rows that have coefficients the are zero.
-  slice(-1) %>% # Remove the first row, which relates to the intercept.
   mutate(s1 = abs(s1), scaled_coefs = s1 * sd) %>% # Multiply the absolute values of the coefficients by their respective sd, then add the product to a new column.
   arrange(desc(scaled_coefs)) %>% # Sort the data frame by descending order of the scaled coefficients.
   print() # Print the final data frame to analyze the most influential variables.
