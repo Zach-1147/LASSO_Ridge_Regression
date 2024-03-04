@@ -88,23 +88,6 @@ sps.set_df <- data.frame(lambda = lassoCV$lambda,nzero = lassoCV$nzero,mse = las
   arrange(mse) %>%
   mutate(percent_diff = ((mse - min_mse) /min_mse) * 100) #Add column to show percentage difference for each MSE from the best model (lambda.min)
 
-#Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
-
-sps.set_trainPlot <- ggplot(sps.set_df, aes(x = log(lambda), y = percent_diff)) +
-  geom_point(aes(size = nzero), alpha = 0.75) + 
-  geom_line() +
-  geom_point(data = sps.set_df[9, ], color = "blue", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
-  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +
-  geom_text(data = sps.set_df[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0,hjust = 1.5, color = "blue") +
-  scale_size_continuous(range = c(1, 6), guide = "none") + #Adjust point sizes based on nzero
-  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) +
-  theme_minimal() +
-  labs(title = "MSE % Change vs. Log(λ) for LASSO CV Training sps.set Models",
-       x = "Log(Lambda)",
-       y = "% Difference from Lambda.min MSE")
-
-sps.set_trainPlot 
-
 #Set our sps.set model lambda's to a numeric vector 
 sps.set <- sps.set_df$lambda
 
@@ -138,35 +121,30 @@ sps.set_testdf <- data.frame(
   nzero = sps.set_df$nzero,
   percent_diff = ((mse.sps.set - min_mse_test) / min_mse_test) * 100)
 
-#Create another plot of mean MSE % over the lambda min, versus lambda values, but this time for sps.set testing results.
 
-sps.set_testPlot <- ggplot(sps.set_testdf, aes(x = log(lambda), y = percent_diff)) +
-  geom_point(aes(size = nzero), alpha = 0.75) +  # Size mapping reintroduced with nzero
-  geom_line() +
-  geom_point(data = sps.set_testdf[9, ], color = "orange", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
-  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +  # nzero labels reintroduced
-  geom_text(data = sps.set_testdf[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0, hjust = 1.2, color = "orange") +
-  scale_size_continuous(range = c(1, 6), guide = "none") +
-  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
-  theme_minimal() +
-  labs(title = "MSE % Change vs. Log(λ) for Testing sps.set Models",
-       x = "Log(Lambda)",
-       y = "% Difference from Lambda.min MSE")
+#We can combine training and testing % change MSE plots to look at the behaviour of the model error in testing and training compared to the best model. 
 
-sps.set_testPlot
+#Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
 
-#We can combine the lines from the training and testing % change MSE plots to look at the behaviour of the model error in testing and training compared to the best model
 
 combinedPlot <- ggplot() +
   #Training data - Blue
   geom_line(data = sps.set_df, aes(x = log(lambda), y = percent_diff, group = 1), color = "blue") +
   geom_point(data = sps.set_df, aes(x = log(lambda), y = percent_diff), alpha = 0.75, color = "blue", size = 2) +
-  geom_point(data = sps.set_df[9, ], aes(x = log(lambda), y = percent_diff), color = "blue", size = 5, shape = 8, alpha = 0.6) +
+  
+  geom_point(data = sps.set_df[9, ], aes(x = log(lambda), y = percent_diff), color = "black", size = 7, shape = 8) +
+  
+  geom_point(data = sps.set_df[1, ], aes(x = log(lambda), y = percent_diff), color = "red", size = 6, shape = 6) +
   
   #Testing data - Orange
   geom_line(data = sps.set_testdf, aes(x = log(lambda), y = percent_diff, group = 1), color = "orange") +
   geom_point(data = sps.set_testdf, aes(x = log(lambda), y = percent_diff), alpha = 0.75, color = "orange", size = 2) +
-  geom_point(data = sps.set_testdf[9, ], aes(x = log(lambda), y = percent_diff), color = "orange", size = 5, shape = 8, alpha = 0.6) +
+  geom_point(data = sps.set_testdf[9, ], aes(x = log(lambda), y = percent_diff), color = "black", size = 7, shape = 8) +
+  
+  geom_text(data = sps.set_df[9, ], aes(x = log(lambda), y = percent_diff, label = sprintf("lambda = %.6f", lambda)), vjust = -0.5, color = "black") +
+  
+  geom_text(data = sps.set_df[1, ], aes(x = log(lambda), y = percent_diff, label = sprintf("lambda = %.6f", lambda)), vjust = -4, hjust = 0, color = "red") +
+  
   
   scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
   theme_minimal() +
@@ -175,6 +153,7 @@ combinedPlot <- ggplot() +
        y = "% Difference from Lambda.min MSE")
 
 combinedPlot
+
 
 # --- Problem 1 - b) - iv) Diagnostics of best model ----
 
@@ -207,8 +186,15 @@ standardized_residuals <- residuals / residual_sd
 # Fit a linear model using the standardized residuals for the diagnostic plots.
 diagnostic_lm_model <- lm(standardized_residuals ~ predict(lassoCV, newx = x_testing, s = lassoCV$lambda.min))
 
-# Visualize the diagnostic plots.
+par(mfrow = c(2, 2))
+
+# Now, plot the diagnostic plots for the linear model
 plot(diagnostic_lm_model)
+
+# Reset to default plotting layout
+par(mfrow = c(1, 1))
+
+
 
 ##-------------------------------
 ### RIDGE Regression
@@ -248,21 +234,6 @@ sps.set.ridge.df <- sps.set.ridge.df %>%
 
 #Plot the percentage difference relative to best model for both training and testing of ridge models.
 
-sps.setRidge_testPlot <- ggplot(sps.set_testdf, aes(x = log(lambda), y = percent_diff)) +
-  geom_point(aes(size = nzero), alpha = 0.75) +  # Size mapping reintroduced with nzero
-  geom_line() +
-  geom_point(data = sps.set_testdf[9, ], color = "orange", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
-  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +  # nzero labels reintroduced
-  geom_text(data = sps.set_testdf[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0, hjust = 1.2, color = "orange") +
-  scale_size_continuous(range = c(1, 6), guide = "none") +
-  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
-  theme_minimal() +
-  labs(title = "MSE % Change vs. Log(λ) for Testing sps.set Models",
-       x = "Log(Lambda)",
-       y = "% Difference from Lambda.min MSE")
-
-sps.set_testPlot
-
 #Plot diagnostics for best model (lambda min), and look for issues.
 
 #Make sure we standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
@@ -279,8 +250,15 @@ standardized_residuals <- residuals / residual_sd
 # Fit a linear model using the standardized residuals for the diagnostic plots.
 diagnostic_lm_model_ridge <- lm(standardized_residuals ~ predict(ridge_1, newx = x_testing, s = ridge_1$lambda.min))
 
-# Visualize the diagnostic plots.
+par(mfrow = c(2, 2))
+
+# Now, plot the diagnostic plots for the linear model
 plot(diagnostic_lm_model_ridge)
+
+# Reset to default plotting layout
+par(mfrow = c(1, 1))
+
+
 
 # --- Problem 1 - d) Comparing models across LASSO and Ridge ---
 
