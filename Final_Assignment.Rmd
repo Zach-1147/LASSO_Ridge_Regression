@@ -351,6 +351,18 @@ ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
 
 #If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
 
+x_training_sd <- apply(x_training, 2, sd) # Calculate the standard deviations of the covariates.
+lasso_min_coef <- as.matrix(coef(lassoCV, s = lassoCV$lambda.min)) # Extract the coefficients and set the object as a matrix.
+variables_names <- row.names(lasso_min_coef) # Extract the row names to be added to a column.
+lasso_min_coef_df <- as.data.frame(lasso_min_coef, row.names = TRUE) # Change the matrix to a data frame to make it easier to work with.
+lasso_min_coef_df$variables <- variables_names # Add the variable names as a new column in the data frame.
+lasso_min_coef_df <- lasso_min_coef_df[-1, c(2, 1)] # Remove the intercept and rearrange columns.
+lasso_min_coef_df$sd <- x_training_sd # Add the sd's into a new column in the data frame.
 
+ranked_variables <- lasso_min_coef_df %>% #Tidyverse function to process the data frame.
+  filter(s1 != 0) %>% # Filter out all the rows that have coefficients the are zero.
+  mutate(s1 = abs(s1), scaled_coefs = s1 * sd) %>% # Multiply the absolute values of the coefficients by their respective sd, then add the product to a new column.
+  arrange(desc(scaled_coefs)) %>% # Sort the data frame by descending order of the scaled coefficients.
+  print() # Print the final data frame to analyze the most influential variables.
 
 ```
