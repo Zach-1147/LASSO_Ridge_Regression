@@ -319,7 +319,7 @@ for (i in 1:length(alphas)){
   #Calculate the testing MSE for the current model
   test_mse <- mse(prediction, y_testing)
   
-  #Append alpha, training MSE, and testing MSE values to the net_elastic dataframe
+  #Append alpha, training MSE, and testing MSE values to the net_elastic data frame
   net_elastic <- rbind(net_elastic, data.frame(alpha = alphas[i], train_mse = train_mse, test_mse = test_mse, lambda_min = lambda_min))
 }
 
@@ -327,11 +327,10 @@ for (i in 1:length(alphas)){
 best_alpha_testing <- net_elastic$alpha[which.min(net_elastic$test_mse)]
 
 #Index from alphas
-best_alpha_index <- which(alphas == best_alpha)
+best_alpha_index <- which(alphas == best_alpha_testing)
 
-#Extract coefficients from best performing model (lambda min from within best alpha from testing)
-best_model_coef <- coef(models[[best_alpha_index]], s = "lambda.min")
-
+#Extract best performing model
+best_net_model <- models[[best_alpha_index]]
 
 #Plot the behaviour of the training cross validation error across the alpha values from the grid search
 ggplot(net_elastic, aes(x = alpha, y = train_mse)) +
@@ -359,6 +358,27 @@ ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
        y = "Testing MSE") +
   theme_minimal()
 
+# --- Problem 2 - b)  Diagnostic plots for best elastic net regression model
+
+# Calculate residuals
+residuals <- y_testing - predict(best_net_model, newx = x_testing, s = best_net_model$lambda.min)
+
+# Calculate estimated standard deviation of residuals.
+residual_sd <- sd(residuals)
+
+# Standardize residuals for diagnostic plots, as they are converted back to non standardized form by glmnet for outputs!
+standardized_residuals <- residuals / residual_sd
+
+# Fit a linear model using the standardized residuals for the diagnostic plots.
+diagnostic_lm_model_net <- lm(standardized_residuals ~ predict(best_net_model, newx = x_testing, s = best_net_model$lambda.min))
+
+par(mfrow = c(2, 2))
+
+# Now, plot the diagnostic plots for the linear model
+plot(diagnostic_lm_model_net)
+
+# Reset to default plotting layout
+par(mfrow = c(1, 1))
 
 
 ```
@@ -368,20 +388,5 @@ ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
 
 # --- Problem 3 
 
-
-
-x_training_sd <- apply(x_training, 2, sd) # Calculate the standard deviations of the covariates.
-lasso_min_coef <- as.matrix(coef(lassoCV, s = lassoCV$lambda.min)) # Extract the coefficients and set the object as a matrix.
-variables_names <- row.names(lasso_min_coef) # Extract the row names to be added to a column.
-lasso_min_coef_df <- as.data.frame(lasso_min_coef, row.names = TRUE) # Change the matrix to a data frame to make it easier to work with.
-lasso_min_coef_df$variables <- variables_names # Add the variable names as a new column in the data frame.
-lasso_min_coef_df <- lasso_min_coef_df[-1, c(2, 1)] # Remove the intercept and rearrange columns.
-lasso_min_coef_df$sd <- x_training_sd # Add the sd's into a new column in the data frame.
-
-ranked_variables <- lasso_min_coef_df %>% #Tidyverse function to process the data frame.
-  filter(s1 != 0) %>% # Filter out all the rows that have coefficients the are zero.
-  mutate(s1 = abs(s1), scaled_coefs = s1 * sd) %>% # Multiply the absolute values of the coefficients by their respective sd, then add the product to a new column.
-  arrange(desc(scaled_coefs)) %>% # Sort the data frame by descending order of the scaled coefficients.
-  print() # Print the final data frame to analyze the most influential variables.
 
 ```
