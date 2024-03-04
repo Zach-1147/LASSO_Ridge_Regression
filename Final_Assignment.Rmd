@@ -86,7 +86,7 @@ min_mse <- min(lassoCV$cvm) #Save min mse for formula used below
 sps.set_df <- data.frame(lambda = lassoCV$lambda,nzero = lassoCV$nzero,mse = lassoCV$cvm) %>%
   filter(lambda >= lassoCV$lambda.min & lambda <= lassoCV$lambda.1se) %>%
   arrange(mse) %>%
-mutate(percent_diff = ((mse - min_mse) /min_mse) * 100) #Add column to show percentage difference for each MSE from the best model (lambda.min)
+  mutate(percent_diff = ((mse - min_mse) /min_mse) * 100) #Add column to show percentage difference for each MSE from the best model (lambda.min)
 
 #Plot the change in mean MSE as a percentage of the minimum MSE specifically for our set of sps.set_df models, looking also at the number of nonzero coefficients (set to point size).
 
@@ -99,9 +99,9 @@ sps.set_trainPlot <- ggplot(sps.set_df, aes(x = log(lambda), y = percent_diff)) 
   scale_size_continuous(range = c(1, 6), guide = "none") + #Adjust point sizes based on nzero
   scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) +
   theme_minimal() +
-labs(title = "MSE % Change vs. Log(λ) for LASSO CV Training sps.set Models",
-     x = "Log(Lambda)",
-     y = "% Difference from Lambda.min MSE")
+  labs(title = "MSE % Change vs. Log(λ) for LASSO CV Training sps.set Models",
+       x = "Log(Lambda)",
+       y = "% Difference from Lambda.min MSE")
 
 sps.set_trainPlot 
 
@@ -218,8 +218,9 @@ plot(diagnostic_lm_model)
 
 ridge_1 <- cv.glmnet(x_training, y_training, type.measure="mse", foldid = std_foldid, keep = TRUE, alpha =0)
 
+par(mar=c(5, 4, 6, 2))
 plot(ridge_1, label = FALSE)
-title(".....")
+title("Ridge Cross-Validation: MSE vs Lambda")
 
 sps.set.ridge.df <- data.frame(lambda = ridge_1$lambda,nzero = ridge_1$nzero,mse = ridge_1$cvm) %>%
   filter(lambda >= ridge_1$lambda.min & lambda <= ridge_1$lambda.1se) %>%
@@ -231,9 +232,6 @@ sps.set.ridge <- sps.set.ridge.df$lambda
 #Performing predictions
 prd.sps.set_ridge <- predict(ridge_1,newx=x_testing,s=sps.set.ridge)
 
-cvxr <- glmnet(x_testing,y_testing,lambda=ridge_1$lambda, alpha=0)
-plot(cvxr)
-
 #Calculate MSEs
 mse <- function (i,y) {
   mean ( (y-i)^2 ) }	
@@ -244,11 +242,26 @@ mse.sps.set.ridge <- apply(prd.sps.set_ridge, 2, mse,y_testing)
 test_mse_ridge <- as.data.frame(mse.sps.set.ridge) %>%
   mutate(lambda = sps.set.ridge)
 
-#Plotting mse across lambdas chosen
-plot(log(sps.set.ridge),mse.sps.set.ridge)
+sps.set.ridge.df <- sps.set.ridge.df %>%
+  mutate(test_mse = mse.sps.set.ridge)
 
-#And percentage difference relative to best model
-plot(log(sps.set.ridge),mse.sps.set.ridge/min(mse.sps.set.ridge) *100 -100)
+
+#Plot the percentage difference relative to best model for both training and testing of ridge models.
+
+sps.setRidge_testPlot <- ggplot(sps.set_testdf, aes(x = log(lambda), y = percent_diff)) +
+  geom_point(aes(size = nzero), alpha = 0.75) +  # Size mapping reintroduced with nzero
+  geom_line() +
+  geom_point(data = sps.set_testdf[9, ], color = "orange", size = 5, shape = 8, alpha = 0.6) + #Highlight alternative model choice
+  geom_text(aes(label = nzero), vjust = -0.8, hjust = 2, color = "darkgrey", size = 3.5) +  # nzero labels reintroduced
+  geom_text(data = sps.set_testdf[9, ], aes(label = sprintf("lambda = %.6f", lambda)), vjust = 0, hjust = 1.2, color = "orange") +
+  scale_size_continuous(range = c(1, 6), guide = "none") +
+  scale_y_continuous(breaks = function(x) pretty(x, n = 10, min.n = 2)) + 
+  theme_minimal() +
+  labs(title = "MSE % Change vs. Log(λ) for Testing sps.set Models",
+       x = "Log(Lambda)",
+       y = "% Difference from Lambda.min MSE")
+
+sps.set_testPlot
 
 #Plot diagnostics for best model (lambda min), and look for issues.
 
@@ -273,12 +286,11 @@ plot(diagnostic_lm_model_ridge)
 
 
 
-
 ##-------------------------------
 ### Net Elastic Regression
 ##------------------------------
 
-# --- Problem 2 - a) i) Tune optimal alpha parameter
+# --- Problem 2 - a) i) AND ii)  Tune optimal alpha parameter 
 
 alphas <- seq(0.1, 0.9, by = 0.01)
 
@@ -306,13 +318,13 @@ for (i in 1:length(alphas)){
   
   #Calculate the testing MSE for the current model
   test_mse <- mse(prediction, y_testing)
-
+  
   #Append alpha, training MSE, and testing MSE values to the net_elastic dataframe
   net_elastic <- rbind(net_elastic, data.frame(alpha = alphas[i], train_mse = train_mse, test_mse = test_mse, lambda_min = lambda_min))
 }
 
 #Extract best alpha from testing MSE measure
-best_alpha <- net_elastic$alpha[which.min(net_elastic$test_mse)]
+best_alpha_testing <- net_elastic$alpha[which.min(net_elastic$test_mse)]
 
 #Index from alphas
 best_alpha_index <- which(alphas == best_alpha)
@@ -330,14 +342,22 @@ ggplot(net_elastic, aes(x = alpha, y = train_mse)) +
   theme_minimal()
 
 
-#Plot the behaviour of the testing MSE across the alpha values from the grid search
+best_alpha_training <- net_elastic$alpha[which.min(net_elastic$train_mse)]
+
+# Plot the behavior of the testing MSE across the alpha values from the grid search
+# Highlighting the best model from training data in red and the best model from testing data in blue
 ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
-  geom_line() + geom_point() +
+  geom_line() +
+  geom_point() +
+  geom_point(data = subset(net_elastic, alpha == best_alpha_training), 
+             aes(x = alpha, y = test_mse), color = 'red', size = 4, alpha = 0.65) +
+  geom_point(data = subset(net_elastic, alpha == best_alpha_testing), 
+             aes(x = alpha, y = test_mse), color = 'blue', size = 4, alpha = 0.65) +
   labs(title = "Testing MSE Across Different Alphas",
+       subtitle = paste("Best training alpha in red:", best_alpha_training, "\nBest testing alpha in blue:", best_alpha_testing),
        x = "Alpha",
        y = "Testing MSE") +
   theme_minimal()
-
 
 
 
@@ -349,7 +369,6 @@ ggplot(net_elastic, aes(x = alpha, y = test_mse)) +
 # --- Problem 3 
 
 
-#If you standardize coefficients you can simply rank the coefficients!! But when glm reports coefficients, it has converted them from standardized forms back to original units - thus to rank them, we need to scale them again!
 
 
 
